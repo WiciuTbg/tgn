@@ -3,7 +3,7 @@ import torch
 
 class MemoryUpdater(nn.Module):
   def __init__(self, memory, message_dimension, memory_dimension, device):
-    super().__init__()  # <- kluczowe
+    super().__init__()
     self.memory = memory
     self.layer_norm = nn.LayerNorm(memory_dimension)
     self.message_dimension = message_dimension
