@@ -7,13 +7,11 @@ from copy import deepcopy
 
 class Memory(nn.Module):
 
-  def __init__(self, n_nodes, memory_dimension, input_dimension, message_dimension=None,
-               device="cpu", combination_method='sum'):
+  def __init__(self, n_nodes, memory_dimension, input_dimension, device="cpu", combination_method='sum'):
     super(Memory, self).__init__()
     self.n_nodes = n_nodes
     self.memory_dimension = memory_dimension
     self.input_dimension = input_dimension
-    self.message_dimension = message_dimension
     self.device = device
 
     self.combination_method = combination_method
