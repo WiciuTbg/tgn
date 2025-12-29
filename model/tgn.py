@@ -57,7 +57,7 @@ class TGN(torch.nn.Module):
                                                      device=device)
     self.memory_updater = get_memory_updater(module_type=memory_updater_type,
                                              memory=self.memory,
-                                             message_dimension=message_dimension,
+                                             input_dimension=message_dimension,
                                              memory_dimension=self.memory_dimension,
                                              device=device)
 
