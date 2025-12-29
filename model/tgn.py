@@ -212,3 +212,7 @@ class TGN(torch.nn.Module):
       messages[source_nodes[i]].append((source_message[i], edge_times[i]))
 
     return unique_sources, messages
+
+  def set_neighbor_finder(self, neighbor_finder):
+    self.neighbor_finder = neighbor_finder
+    self.embedding_module.neighbor_finder = neighbor_finder
