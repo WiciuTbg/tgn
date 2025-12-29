@@ -49,12 +49,8 @@ class TGN(torch.nn.Module):
 
     self.memory_dimension = memory_dimension
     message_dimension = 2 * self.memory_dimension + self.n_edge_features + self.time_encoder.dimension
-    self.memory = Memory(n_nodes=self.n_nodes,
-                         memory_dimension=self.memory_dimension,
-                         message_dimension=message_dimension,
-                         device=device)
-    self.message_aggregator = get_message_aggregator(aggregator_type=aggregator_type,
-                                                     device=device)
+    self.memory = Memory(n_nodes=self.n_nodes, memory_dimension=self.memory_dimension, device=device)
+    self.message_aggregator = get_message_aggregator(aggregator_type=aggregator_type, device=device)
     self.memory_updater = get_memory_updater(module_type=memory_updater_type,
                                              memory=self.memory,
                                              input_dimension=message_dimension,
