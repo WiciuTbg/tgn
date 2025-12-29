@@ -31,7 +31,7 @@ class TGN(torch.nn.Module):
     self.edge_raw_features = torch.from_numpy(edge_features.astype(np.float32)).to(device)
 
     self.n_node_features = self.node_raw_features.shape[1]
-    self.n_nodes = self.node_raw_features.shape[0]
+    self.n_nodes = self.node_raw_features.shape[0] #???????????????????????????????? może -1?
     self.n_edge_features = self.edge_raw_features.shape[1]
     self.embedding_dimension = self.n_node_features
     self.n_neighbors = n_neighbors
@@ -78,8 +78,7 @@ class TGN(torch.nn.Module):
     self.affinity_score = MergeLayer(self.n_node_features, self.n_node_features,
                                      self.n_node_features, 1)
 
-  def compute_temporal_embeddings(self, source_nodes, destination_nodes, negative_nodes, edge_times,
-                                  edge_idxs, n_neighbors=20):
+  def compute_temporal_embeddings(self, source_nodes, destination_nodes, negative_nodes, edge_times, edge_idxs, n_neighbors=20):
     """
     Compute temporal embeddings for sources, destinations, and negatively sampled destinations.
 
@@ -106,18 +105,14 @@ class TGN(torch.nn.Module):
 
     ### Compute differences between the time the memory of a node was last updated,
     ### and the time for which we want to compute the embedding of a node
-    source_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[
-      source_nodes].long()
+    source_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[source_nodes].long()
     source_time_diffs = (source_time_diffs - self.mean_time_shift_src) / self.std_time_shift_src
-    destination_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[
-      destination_nodes].long()
+    destination_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[destination_nodes].long()
     destination_time_diffs = (destination_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
-    negative_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[
-      negative_nodes].long()
+    negative_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[negative_nodes].long()
     negative_time_diffs = (negative_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
 
-    time_diffs = torch.cat([source_time_diffs, destination_time_diffs, negative_time_diffs],
-                           dim=0)
+    time_diffs = torch.cat([source_time_diffs, destination_time_diffs, negative_time_diffs], dim=0)
 
     # Compute the embeddings using the embedding module
     node_embedding = self.embedding_module.compute_embedding(memory=memory,
@@ -131,23 +126,18 @@ class TGN(torch.nn.Module):
     destination_node_embedding = node_embedding[n_samples: 2 * n_samples]
     negative_node_embedding = node_embedding[2 * n_samples:]
 
-    unique_sources, source_id_to_messages = self.get_raw_messages(source_nodes,
-                                                                  source_node_embedding,
-                                                                  destination_nodes,
-                                                                  destination_node_embedding,
-                                                                  edge_times, edge_idxs)
-    unique_destinations, destination_id_to_messages = self.get_raw_messages(destination_nodes,
-                                                                            destination_node_embedding,
-                                                                            source_nodes,
-                                                                            source_node_embedding,
-                                                                            edge_times, edge_idxs)
+    unique_sources, source_id_to_messages = self.get_messages(source_nodes, source_node_embedding,
+                                                              destination_nodes, destination_node_embedding,
+                                                              edge_times, edge_idxs)
+    unique_destinations, destination_id_to_messages = self.get_messages(destination_nodes, destination_node_embedding,
+                                                                        source_nodes, source_node_embedding,
+                                                                        edge_times, edge_idxs)
     self.update_memory(unique_sources, source_id_to_messages)
     self.update_memory(unique_destinations, destination_id_to_messages)
 
     return source_node_embedding, destination_node_embedding, negative_node_embedding
 
-  def compute_edge_probabilities(self, source_nodes, destination_nodes, negative_nodes, edge_times,
-                                 edge_idxs, n_neighbors=20):
+  def compute_edge_probabilities(self, source_nodes, destination_nodes, negative_nodes, edge_times, edge_idxs, n_neighbors=20):
     """
     Compute probabilities for edges between sources and destination and between sources and
     negatives by first computing temporal embeddings using the TGN encoder and then feeding them
@@ -165,8 +155,7 @@ class TGN(torch.nn.Module):
       source_nodes, destination_nodes, negative_nodes, edge_times, edge_idxs, n_neighbors)
 
     score = self.affinity_score(torch.cat([source_node_embedding, source_node_embedding], dim=0),
-                                torch.cat([destination_node_embedding,
-                                           negative_node_embedding])).squeeze(dim=0)
+                                torch.cat([destination_node_embedding, negative_node_embedding])).squeeze(dim=0)
     pos_score = score[:n_samples]
     neg_score = score[n_samples:]
 
@@ -187,15 +176,12 @@ class TGN(torch.nn.Module):
 
     return updated_memory, updated_last_update
 
-  def get_raw_messages(self, source_nodes, source_node_embedding, destination_nodes,
-                       destination_node_embedding, edge_times, edge_idxs):
+  def get_messages(self, source_nodes, source_node_embedding, destination_nodes, destination_node_embedding, edge_times, edge_idxs):
     edge_times = torch.from_numpy(edge_times).float().to(self.device)
     edge_features = self.edge_raw_features[edge_idxs]
 
-    source_memory = self.memory.get_memory(source_nodes) if not \
-      self.use_source_embedding_in_message else source_node_embedding
-    destination_memory = self.memory.get_memory(destination_nodes) if \
-      not self.use_destination_embedding_in_message else destination_node_embedding
+    source_memory = self.memory.get_memory(source_nodes) if not self.use_source_embedding_in_message else source_node_embedding
+    destination_memory = self.memory.get_memory(destination_nodes) if not self.use_destination_embedding_in_message else destination_node_embedding
 
     source_time_delta = edge_times - self.memory.last_update[source_nodes]
     source_time_delta_encoding = self.time_encoder(source_time_delta.unsqueeze(dim=1)).view(len(source_nodes), -1)
