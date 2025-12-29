@@ -68,8 +68,7 @@ MEMORY_DIM = args.memory_dim
 Path("./saved_models/").mkdir(parents=True, exist_ok=True)
 Path("./saved_checkpoints/").mkdir(parents=True, exist_ok=True)
 MODEL_SAVE_PATH = f'./saved_models/{args.prefix}-{args.data}.pth'
-get_checkpoint_path = lambda \
-    epoch: f'./saved_checkpoints/{args.prefix}-{args.data}-{epoch}.pth'
+get_checkpoint_path = lambda epoch: f'./saved_checkpoints/{args.prefix}-{args.data}-{epoch}.pth'
 
 ### set up logger
 logging.basicConfig(level=logging.INFO)
@@ -119,13 +118,10 @@ Path("results/").mkdir(parents=True, exist_ok=True)
 
 # Initialize Model
 tgn = TGN(neighbor_finder=train_ngh_finder, node_features=node_features,
-          edge_features=edge_features, device=device,
-          n_layers=NUM_LAYER,
+          edge_features=edge_features, device=device, n_layers=NUM_LAYER,
           n_heads=NUM_HEADS, dropout=DROP_OUT, memory_dimension=MEMORY_DIM,
-          embedding_module_type=args.embedding_module,
-          aggregator_type=args.aggregator,
-          memory_updater_type=args.memory_updater,
-          n_neighbors=NUM_NEIGHBORS,
+          embedding_module_type=args.embedding_module, aggregator_type=args.aggregator,
+          memory_updater_type=args.memory_updater, n_neighbors=NUM_NEIGHBORS,
           mean_time_shift_src=mean_time_shift_src, std_time_shift_src=std_time_shift_src,
           mean_time_shift_dst=mean_time_shift_dst, std_time_shift_dst=std_time_shift_dst,
           use_destination_embedding_in_message=args.use_destination_embedding_in_message,
