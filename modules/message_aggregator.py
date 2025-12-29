@@ -55,36 +55,8 @@ class LastMessageAggregator(MessageAggregator):
     return to_update_node_ids, unique_messages, unique_timestamps
 
 
-class MeanMessageAggregator(MessageAggregator):
-  def __init__(self, device):
-    super(MeanMessageAggregator, self).__init__(device)
-
-  def aggregate(self, node_ids, messages):
-    """Only keep the last message for each node"""
-    unique_node_ids = np.unique(node_ids)
-    unique_messages = []
-    unique_timestamps = []
-
-    to_update_node_ids = []
-    n_messages = 0
-
-    for node_id in unique_node_ids:
-      if len(messages[node_id]) > 0:
-        n_messages += len(messages[node_id])
-        to_update_node_ids.append(node_id)
-        unique_messages.append(torch.mean(torch.stack([m[0] for m in messages[node_id]]), dim=0))
-        unique_timestamps.append(messages[node_id][-1][1])
-
-    unique_messages = torch.stack(unique_messages) if len(to_update_node_ids) > 0 else []
-    unique_timestamps = torch.stack(unique_timestamps) if len(to_update_node_ids) > 0 else []
-
-    return to_update_node_ids, unique_messages, unique_timestamps
-
-
 def get_message_aggregator(aggregator_type, device):
   if aggregator_type == "last":
     return LastMessageAggregator(device=device)
-  elif aggregator_type == "mean":
-    return MeanMessageAggregator(device=device)
   else:
     raise ValueError("Message aggregator {} not implemented".format(aggregator_type))
