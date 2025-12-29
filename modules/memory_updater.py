@@ -4,7 +4,6 @@ import torch
 
 class MemoryUpdater(nn.Module):
   def __init__(self, memory, message_dimension, memory_dimension, device):
-    super(SequenceMemoryUpdater, self).__init__()
     self.memory = memory
     self.layer_norm = torch.nn.LayerNorm(memory_dimension)
     self.message_dimension = message_dimension
