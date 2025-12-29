@@ -45,5 +45,8 @@ class GRUMemoryUpdater(MemoryUpdater):
     self.memory_updater = nn.GRUCell(input_size=message_dimension, hidden_size=memory_dimension)
 
 
-def get_memory_updater(memory, message_dimension, memory_dimension, device):
-  return GRUMemoryUpdater(memory, message_dimension, memory_dimension, device)
+def get_memory_updater(module_type, memory, message_dimension, memory_dimension, device):
+  if module_type == "gru":
+    return GRUMemoryUpdater(memory, message_dimension, memory_dimension, device)
+  else:
+    raise ValueError("Memory updater {} not implemented".format(module_type))
