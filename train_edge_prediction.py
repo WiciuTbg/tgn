@@ -23,7 +23,6 @@ def train(
     val_rand_sampler,
     optimizer,
     criterion,
-    device,
     num_neighbors: int,
     results_path: str | None = None,
     checkpoint_dir: str | None = None,
@@ -31,6 +30,9 @@ def train(
     logger: logging.Logger | None = None,
     patience: int = 5,
 ):
+
+    device = model.device
+    
     # Use a provided logger, otherwise fall back to a module logger.
     if logger is None:
         logger = logging.getLogger(__name__)
