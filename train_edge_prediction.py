@@ -1,5 +1,4 @@
 import math
-import logging
 import time
 import pickle
 from pathlib import Path
@@ -27,15 +26,10 @@ def train(
     results_path: str | None = None,
     checkpoint_dir: str | None = None,
     checkpoint_prefix: str | None = None,
-    logger: logging.Logger | None = None,
     patience: int = 5,
 ):
 
     device = model.device
-    
-    # Use a provided logger, otherwise fall back to a module logger.
-    if logger is None:
-        logger = logging.getLogger(__name__)
 
     # Create output directories only if saving is enabled.
     if results_path is not None:
@@ -51,9 +45,6 @@ def train(
 
     num_instance = len(train_data.sources)
     num_batch = math.ceil(num_instance / batch_size)
-
-    logger.info("num of training instances: %d", num_instance)
-    logger.info("num of batches per epoch: %d", num_batch)
 
     new_nodes_val_aps = []
     val_aps = []
@@ -74,7 +65,6 @@ def train(
         model.train()
 
         m_loss = []
-        logger.info("start epoch %d", epoch)
 
         for batch_idx in range(num_batch):
             optimizer.zero_grad()
@@ -146,11 +136,6 @@ def train(
         train_losses.append(float(np.mean(m_loss)))
 
         total_epoch_times.append(time.time() - start_epoch)
-
-        logger.info("epoch: %d took %.2fs", epoch, total_epoch_times[-1])
-        logger.info("Epoch mean loss: %.6f", train_losses[-1])
-        logger.info("val auc: %.6f, new node val auc: %.6f", val_auc, nn_val_auc)
-        logger.info("val ap: %.6f, new node val ap: %.6f", val_ap, nn_val_ap)
         
         print(f"epoch: {epoch} took {total_epoch_times[-1]:.2f}s", flush=True)
         print(f"Epoch mean loss: {train_losses[-1]:.6f}", flush=True)
@@ -171,18 +156,20 @@ def train(
                     f,
                 )
 
+
         # Early stopping + checkpointing.
         if early_stopper.early_stop_check(val_ap):
-            logger.info("No improvement over %d epochs, stop training", early_stopper.max_round)
-
+            print(f"No improvement over {early_stopper.max_round} epochs, stop training", flush=True)
+        
             if checkpoint_dir is not None and checkpoint_prefix is not None:
                 best_model_path = get_checkpoint_path(early_stopper.best_epoch)
-                logger.info("Loading best model from epoch %d: %s", early_stopper.best_epoch, best_model_path)
+                print(f"Loading best model from epoch {early_stopper.best_epoch}: {best_model_path}", flush=True)
                 model.load_state_dict(torch.load(best_model_path, map_location=device))
                 model.eval()
             break
         else:
             if checkpoint_dir is not None and checkpoint_prefix is not None:
                 torch.save(model.state_dict(), get_checkpoint_path(epoch))
+
 
     return model
