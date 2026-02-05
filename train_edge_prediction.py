@@ -151,11 +151,11 @@ def train(
         logger.info("Epoch mean loss: %.6f", train_losses[-1])
         logger.info("val auc: %.6f, new node val auc: %.6f", val_auc, nn_val_auc)
         logger.info("val ap: %.6f, new node val ap: %.6f", val_ap, nn_val_ap)
-
-        print("epoch: %d took %.2fs", epoch, total_epoch_times[-1])
-        print("Epoch mean loss: %.6f", train_losses[-1])
-        print("val auc: %.6f, new node val auc: %.6f", val_auc, nn_val_auc)
-        print("val ap: %.6f, new node val ap: %.6f", val_ap, nn_val_ap)
+        
+        print(f"epoch: {epoch} took {total_epoch_times[-1]:.2f}s", flush=True)
+        print(f"Epoch mean loss: {train_losses[-1]:.6f}", flush=True)
+        print(f"val auc: {val_auc:.6f}, new node val auc: {nn_val_auc:.6f}", flush=True)
+        print(f"val ap: {val_ap:.6f}, new node val ap: {nn_val_ap:.6f}", flush=True)
 
         # Save temporary results.
         if results_path is not None:
