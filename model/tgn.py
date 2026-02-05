@@ -4,9 +4,9 @@ import torch
 from collections import defaultdict
 
 from modules.layers import MergeLayer
-from modules.memory import Memory
-from modules.message_aggregator import get_message_aggregator
-from modules.memory_updater import get_memory_updater
+from modules.memory.memory import Memory
+from modules.memory.message_aggregator import get_message_aggregator
+from modules.memory.memory_updater import get_memory_updater
 from modules.embedding_module import get_embedding_module
 from model.time_encoding import TimeEncode
 
