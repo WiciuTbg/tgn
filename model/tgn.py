@@ -3,7 +3,7 @@ import numpy as np
 import torch
 from collections import defaultdict
 
-from utils.others import MergeLayer
+from modules.layers import MergeLayer
 from modules.memory import Memory
 from modules.message_aggregator import get_message_aggregator
 from modules.memory_updater import get_memory_updater
