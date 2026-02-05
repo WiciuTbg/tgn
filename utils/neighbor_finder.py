@@ -68,3 +68,15 @@ class NeighborFinder:
         edge_idxs[i, n_neighbors - len(source_edge_idxs):] = source_edge_idxs
 
     return neighbors, edge_idxs, edge_times
+
+
+
+
+def get_neighbor_finder(data):
+  max_node_idx = max(data.sources.max(), data.destinations.max())
+  adj_list = [[] for _ in range(max_node_idx + 1)]
+  for source, destination, edge_idx, timestamp in zip(data.sources, data.destinations, data.edge_idxs, data.timestamps):
+    adj_list[source].append((destination, edge_idx, timestamp))
+    adj_list[destination].append((source, edge_idx, timestamp))
+
+  return NeighborFinder(adj_list)
