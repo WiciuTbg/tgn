@@ -6,7 +6,7 @@ import numpy as np
 import torch
 
 from eval_edge_prediction import eval
-from utils.EarlyStop import EarlyStopMonitor
+from utils.early_stop import EarlyStopMonitor
 
 
 def train(
