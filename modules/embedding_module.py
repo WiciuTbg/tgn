@@ -3,7 +3,7 @@ from torch import nn
 import numpy as np
 import math
 
-from model.temporal_attention import TemporalAttentionLayer
+from modules.temporal_attention import TemporalAttentionLayer
 
 
 
