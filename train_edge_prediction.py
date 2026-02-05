@@ -6,7 +6,7 @@ from pathlib import Path
 import numpy as np
 import torch
 
-from evaluation.evaluation import eval_edge_prediction
+from eval_edge_prediction import eval
 from utils.EarlyStop import EarlyStopMonitor
 
 
@@ -119,7 +119,7 @@ def train(
         # Backup memory at end of training epoch for unseen-node validation.
         train_memory_backup = model.memory.backup_memory()
 
-        val_ap, val_auc = eval_edge_prediction(
+        val_ap, val_auc = eval(
             model=model,
             negative_edge_sampler=val_rand_sampler,
             data=val_data,
@@ -131,7 +131,7 @@ def train(
         # Restore training memory to evaluate on unseen nodes.
         model.memory.restore_memory(train_memory_backup)
 
-        nn_val_ap, nn_val_auc = eval_edge_prediction(
+        nn_val_ap, nn_val_auc = eval(
             model=model,
             negative_edge_sampler=val_rand_sampler,
             data=new_node_val_data,
