@@ -4,8 +4,8 @@ from collections import defaultdict
 
 from modules.layers import MergeLayer
 from modules.memory.memory import Memory
-from modules.memory.message_aggregator import get_message_aggregator
-from modules.memory.memory_updater import get_memory_updater
+from modules.memory.message_aggregator import LastMessageAggregator
+from modules.memory.memory_updater import GRUMemoryUpdater
 from modules.embedding_module2 import GraphAttentionEmbedding
 from modules.time_encoding import TimeEncode
 
@@ -13,8 +13,7 @@ from modules.time_encoding import TimeEncode
 class TGN(torch.nn.Module):
   def __init__(self, neighbor_finder, edge_features, device, n_layers=2,
                n_heads=2, dropout=0.1, memory_dimension=172, time_dimension=172,
-               mean_time_shift_src=0, std_time_shift_src=1, mean_time_shift_dst=0,
-               std_time_shift_dst=1, n_neighbors=None, aggregator_type="last",
+               n_neighbors=None, aggregator_type="last",
                use_destination_embedding_in_message=False,
                use_source_embedding_in_message=False,
                memory_updater_type="gru",
@@ -38,22 +37,19 @@ class TGN(torch.nn.Module):
 
     self.time_encoder = TimeEncode(dimension=time_dimension)
 
-    self.mean_time_shift_src = mean_time_shift_src
-    self.std_time_shift_src = std_time_shift_src
-    self.mean_time_shift_dst = mean_time_shift_dst
-    self.std_time_shift_dst = std_time_shift_dst
 
     self.memory_dimension = memory_dimension
     message_dimension = 2 * self.memory_dimension + self.n_edge_features + self.time_encoder.dimension
+                 
     self.memory = Memory(n_nodes=self.n_nodes, memory_dimension=self.memory_dimension, device=device)
-    self.message_aggregator = get_message_aggregator(aggregator_type=aggregator_type, device=device)
-    self.memory_updater = get_memory_updater(module_type=memory_updater_type,
-                                             memory=self.memory,
-                                             message_dimension=message_dimension,
-                                             memory_dimension=self.memory_dimension,
-                                             device=device)
 
-
+    self.message_aggregator = LastMessageAggregator(device=device)
+                 
+    self.memory_updater = GRUMemoryUpdater(memory=self.memory,
+                                           message_dimension=message_dimension,
+                                           memory_dimension=self.memory_dimension,
+                                           device=device)
+ 
     self.embedding_module = GraphAttentionEmbedding(edge_features=self.edge_raw_features,
                                                     neighbor_finder=self.neighbor_finder,
                                                     time_encoder=self.time_encoder,
@@ -65,10 +61,8 @@ class TGN(torch.nn.Module):
                                                     n_heads=n_heads,
                                                     dropout=dropout)
 
-
     # MLP to compute probability on an edge given two node embeddings
-    self.affinity_score = MergeLayer(self.memory_dimension, self.memory_dimension,
-                                     self.memory_dimension, 1)
+    self.affinity_score = MergeLayer(self.memory_dimension, self.memory_dimension, self.memory_dimension, 1)
 
   def compute_temporal_embeddings(self, source_nodes, destination_nodes, negative_nodes, edge_times, edge_idxs, n_neighbors=20):
     """
