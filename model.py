@@ -1,4 +1,3 @@
-import logging
 import numpy as np
 import torch
 from collections import defaultdict
@@ -25,7 +24,6 @@ class TGN(torch.nn.Module):
     self.n_layers = n_layers
     self.neighbor_finder = neighbor_finder
     self.device = device
-    self.logger = logging.getLogger(__name__)
 
     self.edge_raw_features = torch.from_numpy(edge_features.astype(np.float32)).to(device)
 
@@ -62,7 +60,7 @@ class TGN(torch.nn.Module):
                                                     n_layers=self.n_layers,
                                                     memory_dim=self.memory,
                                                     n_edge_features=self.n_edge_features,
-                                                    n_time_features=self.n_time_features,
+                                                    n_time_features=time_dimension,
                                                     device=self.device,
                                                     n_heads=n_heads,
                                                     dropout=dropout)
