@@ -42,7 +42,7 @@ class TGN(torch.nn.Module):
                  
     self.memory = Memory(n_nodes=self.n_nodes, memory_dimension=self.memory_dimension, device=device)
 
-    self.message_aggregator = LastMessageAggregator(device=device)
+    self.message_aggregator = LastMessageAggregator()
                  
     self.memory_updater = GRUMemoryUpdater(memory=self.memory,
                                            message_dimension=message_dimension,
