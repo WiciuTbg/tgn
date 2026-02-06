@@ -1,82 +1,66 @@
 import numpy as np
 
+
 class NeighborFinder:
-  def __init__(self, adj_list, seed=None):
+  def __init__(self, data, seed=None):
+    """
+    Build temporal adjacency lists from a Data-like object with fields:
+      - sources, destinations, edge_idxs, timestamps (numpy arrays)
+    """
+    max_node_idx = int(max(data.sources.max(), data.destinations.max()))
+    adj_list = [[] for _ in range(max_node_idx + 1)]
+
+    for s, d, eidx, ts in zip(data.sources, data.destinations, data.edge_idxs, data.timestamps):
+      adj_list[int(s)].append((int(d), int(eidx), float(ts)))
+      adj_list[int(d)].append((int(s), int(eidx), float(ts)))
+
     self.node_to_neighbors = []
     self.node_to_edge_idxs = []
     self.node_to_edge_timestamps = []
 
     for neighbors in adj_list:
-      # Neighbors is a list of tuples (neighbor, edge_idx, timestamp)
-      # We sort the list based on timestamp
-      sorted_neighhbors = sorted(neighbors, key=lambda x: x[2])
-      self.node_to_neighbors.append(np.array([x[0] for x in sorted_neighhbors]))
-      self.node_to_edge_idxs.append(np.array([x[1] for x in sorted_neighhbors]))
-      self.node_to_edge_timestamps.append(np.array([x[2] for x in sorted_neighhbors]))
+      # neighbors: list of tuples (neighbor, edge_idx, timestamp)
+      # sort by timestamp
+      neighbors_sorted = sorted(neighbors, key=lambda x: x[2])
+      self.node_to_neighbors.append(np.array([x[0] for x in neighbors_sorted], dtype=np.int32))
+      self.node_to_edge_idxs.append(np.array([x[1] for x in neighbors_sorted], dtype=np.int32))
+      self.node_to_edge_timestamps.append(np.array([x[2] for x in neighbors_sorted], dtype=np.float32))
 
-    if seed is not None:
-      self.seed = seed
-      self.random_state = np.random.RandomState(self.seed)
+    self.random_state = np.random.RandomState(seed) if seed is not None else None
 
   def find_before(self, src_idx, cut_time):
     """
-    Extracts all the interactions happening before cut_time for user src_idx in the overall interaction graph. The returned interactions are sorted by time.
-
-    Returns 3 lists: neighbors, edge_idxs, timestamps
-
+    Return all interactions strictly before cut_time for node src_idx, sorted by time.
     """
     i = np.searchsorted(self.node_to_edge_timestamps[src_idx], cut_time)
-
-    return self.node_to_neighbors[src_idx][:i], self.node_to_edge_idxs[src_idx][:i], self.node_to_edge_timestamps[src_idx][:i]
+    return (
+      self.node_to_neighbors[src_idx][:i],
+      self.node_to_edge_idxs[src_idx][:i],
+      self.node_to_edge_timestamps[src_idx][:i],
+    )
 
   def get_temporal_neighbor(self, source_nodes, timestamps, n_neighbors=20):
     """
-    Given a list of users ids and relative cut times, extracts a sampled temporal neighborhood of each user in the list.
-
-    Params
-    ------
-    src_idx_l: List[int]
-    cut_time_l: List[float],
-    num_neighbors: int
+    For each (source_node, timestamp) return up to n_neighbors most recent neighbors
+    with interaction time < timestamp. Left-pad with zeros if fewer than n_neighbors.
     """
-    assert (len(source_nodes) == len(timestamps))
+    assert len(source_nodes) == len(timestamps)
 
-    # NB! All interactions described in these matrices are sorted in each row by time
-    neighbors = np.zeros((len(source_nodes), n_neighbors)).astype(
-      np.int32)  # each entry in position (i,j) represent the id of the item targeted by user src_idx_l[i] with an interaction happening before cut_time_l[i]
-    edge_times = np.zeros((len(source_nodes), n_neighbors)).astype(
-      np.float32)  # each entry in position (i,j) represent the timestamp of an interaction between user src_idx_l[i] and item neighbors[i,j] happening before cut_time_l[i]
-    edge_idxs = np.zeros((len(source_nodes), n_neighbors)).astype(
-      np.int32)  # each entry in position (i,j) represent the interaction index of an interaction between user src_idx_l[i] and item neighbors[i,j] happening before cut_time_l[i]
+    neighbors = np.zeros((len(source_nodes), n_neighbors), dtype=np.int32)
+    edge_times = np.zeros((len(source_nodes), n_neighbors), dtype=np.float32)
+    edge_idxs = np.zeros((len(source_nodes), n_neighbors), dtype=np.int32)
 
     for i, (source_node, timestamp) in enumerate(zip(source_nodes, timestamps)):
-      source_neighbors, source_edge_idxs, source_edge_times = self.find_before(source_node,
-                                                   timestamp)  # extracts all neighbors, interactions indexes and timestamps of all interactions of user source_node happening before cut_time
+      src_neigh, src_eidx, src_ets = self.find_before(int(source_node), float(timestamp))
 
-      if len(source_neighbors) > 0 and n_neighbors > 0:
-        # Take most recent interactions
-        source_edge_times = source_edge_times[-n_neighbors:]
-        source_neighbors = source_neighbors[-n_neighbors:]
-        source_edge_idxs = source_edge_idxs[-n_neighbors:]
+      if len(src_neigh) > 0 and n_neighbors > 0:
+        src_neigh = src_neigh[-n_neighbors:]
+        src_eidx = src_eidx[-n_neighbors:]
+        src_ets = src_ets[-n_neighbors:]
 
-        assert (len(source_neighbors) <= n_neighbors)
-        assert (len(source_edge_times) <= n_neighbors)
-        assert (len(source_edge_idxs) <= n_neighbors)
-
-        neighbors[i, n_neighbors - len(source_neighbors):] = source_neighbors
-        edge_times[i, n_neighbors - len(source_edge_times):] = source_edge_times
-        edge_idxs[i, n_neighbors - len(source_edge_idxs):] = source_edge_idxs
+        k = len(src_neigh)
+        neighbors[i, n_neighbors - k:] = src_neigh
+        edge_times[i, n_neighbors - k:] = src_ets
+        edge_idxs[i, n_neighbors - k:] = src_eidx
 
     return neighbors, edge_idxs, edge_times
-
-
-
-
-def get_neighbor_finder(data):
-  max_node_idx = max(data.sources.max(), data.destinations.max())
-  adj_list = [[] for _ in range(max_node_idx + 1)]
-  for source, destination, edge_idx, timestamp in zip(data.sources, data.destinations, data.edge_idxs, data.timestamps):
-    adj_list[source].append((destination, edge_idx, timestamp))
-    adj_list[destination].append((source, edge_idx, timestamp))
-
-  return NeighborFinder(adj_list)
