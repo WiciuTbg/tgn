@@ -7,8 +7,8 @@ class NeighborFinder:
     Build temporal adjacency lists from a Data-like object with fields:
       - sources, destinations, edge_idxs, timestamps (numpy arrays)
     """
-    max_node_idx = int(max(data.sources.max(), data.destinations.max()))
-    adj_list = [[] for _ in range(max_node_idx + 1)]
+    self.max_node_idx = int(max(data.sources.max(), data.destinations.max()))
+    adj_list = [[] for _ in range(self.max_node_idx + 1)]
 
     for s, d, eidx, ts in zip(data.sources, data.destinations, data.edge_idxs, data.timestamps):
       adj_list[int(s)].append((int(d), int(eidx), float(ts)))
@@ -32,6 +32,13 @@ class NeighborFinder:
     """
     Return all interactions strictly before cut_time for node src_idx, sorted by time.
     """
+    if src_idx > self.max_node_idx:
+      return (
+        np.array([], dtype=np.int32),
+        np.array([], dtype=np.int32),
+        np.array([], dtype=np.float32),
+      )
+
     i = np.searchsorted(self.node_to_edge_timestamps[src_idx], cut_time)
     return (
       self.node_to_neighbors[src_idx][:i],
