@@ -9,8 +9,8 @@ class GraphAttentionEmbedding(nn.Module):
     def __init__(
         self,
         edge_features,            # Fajnie jakbyśmy nie przekazywali od razu wszystkich edge_features
-        neighbor_finder,
         time_encoder,
+        n_neighbors: int,
         n_layers: int,
         memory_dim: int,
         n_edge_features: int,
@@ -18,10 +18,12 @@ class GraphAttentionEmbedding(nn.Module):
         device,
         n_heads: int = 2,
         dropout: float = 0.1,
+        neighbor_finder = None,
     ):
         super().__init__()
         self.edge_features = edge_features
         self.neighbor_finder = neighbor_finder
+        self.n_neighbors = n_neighbors
         self.time_encoder = time_encoder
         self.n_layers = n_layers
         self.device = device
@@ -48,7 +50,6 @@ class GraphAttentionEmbedding(nn.Module):
         source_nodes,
         timestamps,
         n_layers = None,
-        n_neighbors = 20,
     ):
 
         if n_layers is None:
@@ -76,10 +77,9 @@ class GraphAttentionEmbedding(nn.Module):
             source_nodes=source_nodes,
             timestamps=timestamps,
             n_layers=n_layers - 1,
-            n_neighbors=n_neighbors,
         )
 
-        neighbors, edge_idxs, edge_times = self.neighbor_finder.get_temporal_neighbor(source_nodes, timestamps, n_neighbors=n_neighbors)
+        neighbors, edge_idxs, edge_times = self.neighbor_finder.get_temporal_neighbor(source_nodes, timestamps, n_neighbors=self.n_neighbors)
 
         neighbors_t = torch.from_numpy(neighbors).long().to(self.device)
         edge_idxs_t = torch.from_numpy(edge_idxs).long().to(self.device)
@@ -93,12 +93,11 @@ class GraphAttentionEmbedding(nn.Module):
         neigh_emb = self.compute_embedding(
             memory=memory,
             source_nodes=flat_neighbors,
-            timestamps=np.repeat(timestamps, n_neighbors),
+            timestamps=np.repeat(timestamps, self.n_neighbors),
             n_layers=n_layers - 1,
-            n_neighbors=n_neighbors,
         )
 
-        neigh_emb = neigh_emb.view(len(source_nodes), n_neighbors, -1)
+        neigh_emb = neigh_emb.view(len(source_nodes), self.n_neighbors, -1)
 
         edge_time_emb = self.time_encoder(edge_deltas_t)
         edge_feat = self.edge_features[edge_idxs_t, :]
@@ -109,5 +108,4 @@ class GraphAttentionEmbedding(nn.Module):
         # Apply the attention layer corresponding to this depth
         attn = self.attention_models[n_layers - 1]
         out, _ = attn(src_conv, src_time_emb, neigh_emb, edge_time_emb, edge_feat, mask)
-      
         return out
