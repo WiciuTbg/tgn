@@ -11,58 +11,63 @@ from modules.time_encoding import TimeEncode
 
 
 class TGN(torch.nn.Module):
-  def __init__(self, neighbor_finder, edge_features, device, n_layers=2,
+  def __init__(self, neighbor_finder_class, edge_features, device, n_layers=2,
                n_heads=2, dropout=0.1, memory_dimension=172, time_dimension=172,
-               n_neighbors=None,
+               n_neighbors=10,
                use_destination_embedding_in_message=False,
                use_source_embedding_in_message=False,
                n_nodes=9228):
     super(TGN, self).__init__()
 
-    self.n_layers = n_layers
-    self.neighbor_finder = neighbor_finder
-    self.device = device
 
-    self.edge_raw_features = torch.from_numpy(edge_features.astype(np.float32)).to(device)
 
+
+
+
+    self.edge_features = torch.from_numpy(edge_features.astype(np.float32)).to(device)
     self.n_nodes = n_nodes
     #self.n_nodes = self.node_raw_features.shape[0] #???????????????????????????????? może -1? W preprocessingu dodajemy jeden pusty wiersz o indeksie 0
-    self.n_edge_features = self.edge_raw_features.shape[1]
-    self.embedding_dimension = memory_dimension
-    self.n_neighbors = n_neighbors
-                 
-    self.use_destination_embedding_in_message = use_destination_embedding_in_message
-    self.use_source_embedding_in_message = use_source_embedding_in_message
+    self.n_edge_features = self.edge_features.shape[1]
+    self.embedding_dimension = memory_dimension # Do zmiany
 
+
+
+
+                 
+
+    self.device = device
+                 
+    self.neighbor_finder_class = neighbor_finder_class
+    self.n_layers = n_layers
+    self.neighbor_finder = None
+    self.n_neighbors = n_neighbors
+
+    self.time_dimension = time_dimension
     self.time_encoder = TimeEncode(dimension=time_dimension)
 
+    self.use_destination_embedding_in_message = use_destination_embedding_in_message
+    self.use_source_embedding_in_message = use_source_embedding_in_message
+    self.message_aggregator = LastMessageAggregator()
 
     self.memory_dimension = memory_dimension
-    message_dimension = 2 * self.memory_dimension + self.n_edge_features + self.time_encoder.dimension
-                 
-    self.memory = Memory(n_nodes=self.n_nodes, memory_dimension=self.memory_dimension, device=device)
+    message_dimension = 2 * memory_dimension + self.n_edge_features + self.time_encoder.dimension
+    self.memory = Memory(n_nodes=self.n_nodes, memory_dimension=memory_dimension, device=device)
+    self.memory_updater = GRUMemoryUpdater(memory=self.memory, message_dimension=message_dimension, memory_dimension=memory_dimension)
 
-    self.message_aggregator = LastMessageAggregator()
-                 
-    self.memory_updater = GRUMemoryUpdater(memory=self.memory,
-                                           message_dimension=message_dimension,
-                                           memory_dimension=self.memory_dimension)
- 
-    self.embedding_module = GraphAttentionEmbedding(edge_features=self.edge_raw_features,
-                                                    neighbor_finder=self.neighbor_finder,
+    self.embedding_module = GraphAttentionEmbedding(edge_features=self.edge_features,
                                                     time_encoder=self.time_encoder,
-                                                    n_layers=self.n_layers,
-                                                    memory_dim=self.memory_dimension,
+                                                    n_neighbors=n_neighbors,
+                                                    n_layers=n_layers,
+                                                    memory_dim=memory_dimension,
                                                     n_edge_features=self.n_edge_features,
                                                     n_time_features=time_dimension,
-                                                    device=self.device,
+                                                    device=device,
                                                     n_heads=n_heads,
                                                     dropout=dropout)
 
-    # MLP to compute probability on an edge given two node embeddings
-    self.affinity_score = MergeLayer(self.memory_dimension, self.memory_dimension, self.memory_dimension, 1)
+    self.affinity_score = MergeLayer(self.memory_dimension, self.memory_dimension, self.memory_dimension, 1)   # Do zmiany
 
-  def compute_temporal_embeddings(self, source_nodes, destination_nodes, negative_nodes, edge_times, edge_idxs, n_neighbors=20):
+  def compute_temporal_embeddings(self, source_nodes, destination_nodes, negative_nodes, edge_times, edge_idxs):
     """
     Compute temporal embeddings for sources, destinations, and negatively sampled destinations.
 
@@ -71,8 +76,6 @@ class TGN(torch.nn.Module):
     :param negative_nodes [batch_size]: ids of negative sampled destination
     :param edge_times [batch_size]: timestamp of interaction
     :param edge_idxs [batch_size]: index of interaction
-    :param n_neighbors [scalar]: number of temporal neighbor to consider in each convolutional
-    layer
     :return: Temporal embeddings for sources, destinations and negatives
     """
 
@@ -85,11 +88,7 @@ class TGN(torch.nn.Module):
     last_update = self.memory.last_update
 
     # Compute the embeddings using the embedding module
-    node_embedding = self.embedding_module.compute_embedding(memory=memory,
-                                                             source_nodes=nodes,
-                                                             timestamps=timestamps,
-                                                             n_layers=self.n_layers,
-                                                             n_neighbors=n_neighbors)
+    node_embedding = self.embedding_module.compute_embedding(memory=memory, source_nodes=nodes, timestamps=timestamps)
 
     source_node_embedding = node_embedding[:n_samples]
     destination_node_embedding = node_embedding[n_samples: 2 * n_samples]
@@ -106,22 +105,22 @@ class TGN(torch.nn.Module):
 
     return source_node_embedding, destination_node_embedding, negative_node_embedding
 
-  def compute_edge_probabilities(self, source_nodes, destination_nodes, negative_nodes, edge_times, edge_idxs, n_neighbors=20):
+  def compute_edge_probabilities(self, source_nodes, destination_nodes, negative_nodes, edge_times, edge_idxs):
     """
     Compute probabilities for edges between sources and destination and between sources and
     negatives by first computing temporal embeddings using the TGN encoder and then feeding them
     into the MLP decoder.
+    
     :param destination_nodes [batch_size]: destination ids
     :param negative_nodes [batch_size]: ids of negative sampled destination
     :param edge_times [batch_size]: timestamp of interaction
     :param edge_idxs [batch_size]: index of interaction
-    :param n_neighbors [scalar]: number of temporal neighbor to consider in each convolutional
-    layer
     :return: Probabilities for both the positive and negative edges
     """
+    
     n_samples = len(source_nodes)
-    source_node_embedding, destination_node_embedding, negative_node_embedding = self.compute_temporal_embeddings(
-      source_nodes, destination_nodes, negative_nodes, edge_times, edge_idxs, n_neighbors)
+    source_node_embedding, destination_node_embedding, negative_node_embedding = self.compute_temporal_embeddings(source_nodes, destination_nodes, \
+                                                                                                                  negative_nodes, edge_times, edge_idxs)
 
     score = self.affinity_score(torch.cat([source_node_embedding, source_node_embedding], dim=0),
                                 torch.cat([destination_node_embedding, negative_node_embedding])).squeeze(dim=0)
@@ -147,7 +146,7 @@ class TGN(torch.nn.Module):
 
   def get_messages(self, source_nodes, source_node_embedding, destination_nodes, destination_node_embedding, edge_times, edge_idxs):
     edge_times = torch.from_numpy(edge_times).float().to(self.device)
-    edge_features = self.edge_raw_features[edge_idxs]
+    edge_features = self.edge_features[edge_idxs]
 
     source_memory = self.memory.get_memory(source_nodes) if not self.use_source_embedding_in_message else source_node_embedding
     destination_memory = self.memory.get_memory(destination_nodes) if not self.use_destination_embedding_in_message else destination_node_embedding
@@ -164,6 +163,7 @@ class TGN(torch.nn.Module):
 
     return unique_sources, messages
 
-  def set_neighbor_finder(self, neighbor_finder):
+  def set_neighbor_finder(self, data):
+    neighbor_finder = self.neighbor_finder_class(data)
     self.neighbor_finder = neighbor_finder
     self.embedding_module.neighbor_finder = neighbor_finder
