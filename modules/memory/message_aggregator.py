@@ -3,9 +3,8 @@ import numpy as np
 
 
 class LastMessageAggregator(torch.nn.Module):
-    def __init__(self, device):
+    def __init__(self):
         super().__init__()
-        self.device = device
 
     def aggregate(self, node_ids, messages):
         """Only keep the last message for each node (same behavior as the original)."""
