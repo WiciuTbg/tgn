@@ -63,7 +63,7 @@ class NeighborFinder:
 
     for i, (source_node, timestamp) in enumerate(zip(source_nodes, timestamps)):
       src_neigh, src_eidx, src_ets = self.find_before(int(source_node), float(timestamp))
-
+      
       if len(src_neigh) > 0:
         src_neigh = src_neigh[-n_neighbors:]
         src_eidx = src_eidx[-n_neighbors:]
@@ -74,9 +74,10 @@ class NeighborFinder:
         edge_times[i, n_neighbors - k:] = src_ets
         edge_idxs[i, n_neighbors - k:] = src_eidx
 
-        if self.val == True and (k < n_neighbors or i == self.test_i):
-          print(k)
-          print(i, source_node, timestamp)
-          print(neighbors, edge_idxs, edge_times)
+      if self.val == True:
+        print('i=', i, 'source_node=', source_node, 'timestamp=', timestamp)
+        print('neighbors=', len(src_neigh))
+        print(src_eidx)
+        if i > 9:
           self.val = False
     return neighbors, edge_idxs, edge_times
