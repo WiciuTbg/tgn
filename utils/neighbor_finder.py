@@ -2,12 +2,17 @@ import numpy as np
 
 
 class NeighborFinder:
-  def __init__(self, data, seed=None):
+  def __init__(self, data, max_node_idx=None):
     """
     Build temporal adjacency lists from a Data-like object with fields:
       - sources, destinations, edge_idxs, timestamps (numpy arrays)
     """
-    self.max_node_idx = int(max(data.sources.max(), data.destinations.max()))
+    if max_node_idx == None:
+      self.max_node_idx = int(max(data.sources.max(), data.destinations.max()))
+    else:
+      self.max_node_idx = max_node_idx
+
+    
     adj_list = [[] for _ in range(self.max_node_idx + 1)]
 
     for s, d, eidx, ts in zip(data.sources, data.destinations, data.edge_idxs, data.timestamps):
@@ -26,7 +31,6 @@ class NeighborFinder:
       self.node_to_edge_idxs.append(np.array([x[1] for x in neighbors_sorted], dtype=np.int32))
       self.node_to_edge_timestamps.append(np.array([x[2] for x in neighbors_sorted], dtype=np.float32))
 
-    self.random_state = np.random.RandomState(seed) if seed is not None else None
 
   def find_before(self, src_idx, cut_time):
     """
@@ -69,5 +73,4 @@ class NeighborFinder:
         neighbors[i, n_neighbors - k:] = src_neigh
         edge_times[i, n_neighbors - k:] = src_ets
         edge_idxs[i, n_neighbors - k:] = src_eidx
-
     return neighbors, edge_idxs, edge_times
