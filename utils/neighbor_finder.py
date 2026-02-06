@@ -74,7 +74,7 @@ class NeighborFinder:
         edge_times[i, n_neighbors - k:] = src_ets
         edge_idxs[i, n_neighbors - k:] = src_eidx
 
-        if self.val == True and i == self.test_i:
+        if self.val == True and (k < n_neighbors or i == self.test_i):
           print(k)
           print(i, source_node, timestamp)
           print(neighbors, edge_idxs, edge_times)
