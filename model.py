@@ -13,10 +13,9 @@ from modules.time_encoding import TimeEncode
 class TGN(torch.nn.Module):
   def __init__(self, neighbor_finder, edge_features, device, n_layers=2,
                n_heads=2, dropout=0.1, memory_dimension=172, time_dimension=172,
-               n_neighbors=None, aggregator_type="last",
+               n_neighbors=None,
                use_destination_embedding_in_message=False,
                use_source_embedding_in_message=False,
-               memory_updater_type="gru",
                n_nodes=9228):
     super(TGN, self).__init__()
 
