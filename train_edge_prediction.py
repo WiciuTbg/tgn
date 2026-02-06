@@ -1,47 +1,24 @@
 import math
 import time
-import pickle
-from pathlib import Path
 import numpy as np
 import torch
-
 from eval_edge_prediction import eval
-from utils.early_stop import EarlyStopMonitor
 
 
 def train(
     model,
+    pre_test_data,
     train_data,
     val_data,
     new_node_val_data,
-    train_ngh_finder,
-    full_ngh_finder,
     batch_size: int,
     n_epoch: int,
     train_rand_sampler,
     val_rand_sampler,
     optimizer,
-    criterion,
-    num_neighbors: int,
-    results_path: str | None = None,
-    checkpoint_dir: str | None = None,
-    checkpoint_prefix: str | None = None,
-    patience: int = 5,
-):
+    criterion):
 
     device = model.device
-
-    # Create output directories only if saving is enabled.
-    if results_path is not None:
-        Path(results_path).parent.mkdir(parents=True, exist_ok=True)
-
-    if checkpoint_dir is not None:
-        Path(checkpoint_dir).mkdir(parents=True, exist_ok=True)
-
-    def get_checkpoint_path(epoch: int) -> str:
-        # If checkpoint saving is disabled, this should not be called.
-        assert checkpoint_dir is not None and checkpoint_prefix is not None
-        return str(Path(checkpoint_dir) / f"{checkpoint_prefix}-{epoch}.pth")
 
     num_instance = len(train_data.sources)
     num_batch = math.ceil(num_instance / batch_size)
@@ -52,8 +29,6 @@ def train(
     total_epoch_times = []
     train_losses = []
 
-    early_stopper = EarlyStopMonitor(max_round=patience)
-
     for epoch in range(n_epoch):
         start_epoch = time.time()
 
@@ -61,7 +36,7 @@ def train(
         model.memory.__init_memory__()
 
         # Train using only the training graph.
-        model.set_neighbor_finder(train_ngh_finder)
+        model.set_neighbor_finder(train_data)
         model.train()
 
         m_loss = []
@@ -88,9 +63,7 @@ def train(
                 destinations_batch,
                 negatives_batch,
                 timestamps_batch,
-                edge_idxs_batch,
-                num_neighbors,
-            )
+                edge_idxs_batch)
 
             loss = criterion(pos_prob.squeeze(), pos_label) + criterion(neg_prob.squeeze(), neg_label)
             loss.backward()
@@ -103,7 +76,7 @@ def train(
         epoch_times.append(time.time() - start_epoch)
 
         # Validation uses the full graph.
-        model.set_neighbor_finder(full_ngh_finder)
+        model.set_neighbor_finder(pre_test_data)
         model.eval()
 
         # Backup memory at end of training epoch for unseen-node validation.
@@ -112,9 +85,7 @@ def train(
         val_ap, val_auc = eval(
             model=model,
             negative_edge_sampler=val_rand_sampler,
-            data=val_data,
-            n_neighbors=num_neighbors,
-        )
+            data=val_data)
 
         val_memory_backup = model.memory.backup_memory()
 
@@ -124,9 +95,7 @@ def train(
         nn_val_ap, nn_val_auc = eval(
             model=model,
             negative_edge_sampler=val_rand_sampler,
-            data=new_node_val_data,
-            n_neighbors=num_neighbors,
-        )
+            data=new_node_val_data)
 
         # Restore memory after validation for potential testing later.
         model.memory.restore_memory(val_memory_backup)
@@ -141,35 +110,5 @@ def train(
         print(f"Epoch mean loss: {train_losses[-1]:.6f}", flush=True)
         print(f"val auc: {val_auc:.6f}, new node val auc: {nn_val_auc:.6f}", flush=True)
         print(f"val ap: {val_ap:.6f}, new node val ap: {nn_val_ap:.6f}", flush=True)
-
-        # Save temporary results.
-        if results_path is not None:
-            with open(results_path, "wb") as f:
-                pickle.dump(
-                    {
-                        "val_aps": val_aps,
-                        "new_nodes_val_aps": new_nodes_val_aps,
-                        "train_losses": train_losses,
-                        "epoch_times": epoch_times,
-                        "total_epoch_times": total_epoch_times,
-                    },
-                    f,
-                )
-
-
-        # Early stopping + checkpointing.
-        if early_stopper.early_stop_check(val_ap):
-            print(f"No improvement over {early_stopper.max_round} epochs, stop training", flush=True)
-        
-            if checkpoint_dir is not None and checkpoint_prefix is not None:
-                best_model_path = get_checkpoint_path(early_stopper.best_epoch)
-                print(f"Loading best model from epoch {early_stopper.best_epoch}: {best_model_path}", flush=True)
-                model.load_state_dict(torch.load(best_model_path, map_location=device))
-                model.eval()
-            break
-        else:
-            if checkpoint_dir is not None and checkpoint_prefix is not None:
-                torch.save(model.state_dict(), get_checkpoint_path(epoch))
-
 
     return model
