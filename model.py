@@ -46,8 +46,7 @@ class TGN(torch.nn.Module):
                  
     self.memory_updater = GRUMemoryUpdater(memory=self.memory,
                                            message_dimension=message_dimension,
-                                           memory_dimension=self.memory_dimension,
-                                           device=device)
+                                           memory_dimension=self.memory_dimension)
  
     self.embedding_module = GraphAttentionEmbedding(edge_features=self.edge_raw_features,
                                                     neighbor_finder=self.neighbor_finder,
