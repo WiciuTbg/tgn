@@ -2,12 +2,13 @@ import numpy as np
 
 
 class NeighborFinder:
-  def __init__(self, data, val=False):
+  def __init__(self, data, val=False, test_i=0):
     """
     Build temporal adjacency lists from a Data-like object with fields:
       - sources, destinations, edge_idxs, timestamps (numpy arrays)
     """
     self.val = val
+    self.test_i = test_i
     
     self.max_node_idx = int(max(data.sources.max(), data.destinations.max()))
 
@@ -73,6 +74,9 @@ class NeighborFinder:
         edge_times[i, n_neighbors - k:] = src_ets
         edge_idxs[i, n_neighbors - k:] = src_eidx
 
-        if self.val == True:
+        if self.val == True and i == self.test_i:
           print(k)
+          print(i, source_node, timestamp)
+          print(neighbors, edge_idxs, edge_times)
+          self.val = False
     return neighbors, edge_idxs, edge_times
