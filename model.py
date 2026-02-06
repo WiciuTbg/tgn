@@ -92,24 +92,12 @@ class TGN(torch.nn.Module):
     memory = self.memory.get_memory(list(range(self.n_nodes)))
     last_update = self.memory.last_update
 
-    ### Compute differences between the time the memory of a node was last updated,
-    ### and the time for which we want to compute the embedding of a node
-    source_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[source_nodes].long()
-    source_time_diffs = (source_time_diffs - self.mean_time_shift_src) / self.std_time_shift_src
-    destination_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[destination_nodes].long()
-    destination_time_diffs = (destination_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
-    negative_time_diffs = torch.LongTensor(edge_times).to(self.device) - last_update[negative_nodes].long()
-    negative_time_diffs = (negative_time_diffs - self.mean_time_shift_dst) / self.std_time_shift_dst
-
-    time_diffs = torch.cat([source_time_diffs, destination_time_diffs, negative_time_diffs], dim=0)
-
     # Compute the embeddings using the embedding module
     node_embedding = self.embedding_module.compute_embedding(memory=memory,
                                                              source_nodes=nodes,
                                                              timestamps=timestamps,
                                                              n_layers=self.n_layers,
-                                                             n_neighbors=n_neighbors,
-                                                             time_diffs=time_diffs)
+                                                             n_neighbors=n_neighbors)
 
     source_node_embedding = node_embedding[:n_samples]
     destination_node_embedding = node_embedding[n_samples: 2 * n_samples]
