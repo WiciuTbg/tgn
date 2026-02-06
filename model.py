@@ -58,7 +58,7 @@ class TGN(torch.nn.Module):
                                                     neighbor_finder=self.neighbor_finder,
                                                     time_encoder=self.time_encoder,
                                                     n_layers=self.n_layers,
-                                                    memory_dim=self.memory,
+                                                    memory_dim=self.memory_dimension,
                                                     n_edge_features=self.n_edge_features,
                                                     n_time_features=time_dimension,
                                                     device=self.device,
